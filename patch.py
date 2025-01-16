@@ -11,11 +11,19 @@ import sys
 FILE_ENDS = ('.svs', '.ndpi', '.tiff', '.tif', '.mrxs')
 DIRS = ['Breast3_ihc', 'LymphNode1_he', 'Breast1_he',  'Breast2_he']
 
-def extract_patches(slide, save_dir, name=None,train=True, mask=None, mask_path=None, patch_size=1280, level=0):
-    if mask_path is not None:
-        mask = Image.open(mask_path)
-    elif mask is not None:
-        mask = Image.fromarray(mask)
+def extract_patches(slide, save_dir, name=None, train=True, mask=None, mask_path=None, patch_size=1280, level=0):
+    # Add input validation
+    if not os.path.exists(save_dir):
+        raise ValueError(f"Save directory {save_dir} does not exist")
+    
+    if level >= len(slide.level_dimensions):
+        raise ValueError(f"Invalid level {level}. Max level is {len(slide.level_dimensions)-1}")
+    
+    try:
+        if mask_path is not None:
+            mask = Image.open(mask_path)
+    except Exception as e:
+        raise ValueError(f"Failed to load mask from {mask_path}: {str(e)}")
 
     if mask is not None:
         assert slide.level_dimensions[level][0] == mask.size[0]
@@ -44,7 +52,11 @@ def extract_patches(slide, save_dir, name=None,train=True, mask=None, mask_path=
             if mask is not None:
                 cv2.imshow('mask', np.array(mask_patch)*255)
             cv2.waitKey(1)
-    slide.close()
+            patch.close()  # Explicitly close to free memory
+            if mask_patch:
+                mask_patch.close()
+    finally:
+        slide.close()  # Ensure slide is always closed
 
 def scale_coordinates(coords, orig_size, new_size):
     scale_x = new_size[0] / orig_size[0]
